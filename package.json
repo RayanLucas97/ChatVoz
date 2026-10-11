@@ -1,0 +1,8 @@
+{
+  "name": "chat-de-voz",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Chat de voz com contas, amigos e salas (WebRTC via PeerJS)",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

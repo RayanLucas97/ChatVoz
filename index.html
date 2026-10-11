@@ -1,0 +1,2446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e1f24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Chat de Voz</title>
+<style>
+:root {
+  --bg: #1e1f24;
+  --panel: #2a2c33;
+  --panel-2: #34373f;
+  --text: #e8e9ee;
+  --muted: #9a9eab;
+  --accent: #5b6cff;
+  --danger: #e5484d;
+  --ok: #3ddc84;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+[hidden] { display: none !important; }
+
+/* ---------- Avisos ---------- */
+.sub { margin: 0 0 16px; color: var(--muted); font-size: .95rem; }
+.invite {
+  margin: 0 0 6px; padding: 10px 14px; border-radius: 10px;
+  background: #23305a; color: #cfd6ff; font-size: .9rem;
+}
+.notice {
+  margin: 16px 0 0; padding: 12px 14px; border-radius: 10px;
+  background: #3a3320; color: #ffd98a; font-size: .82rem; line-height: 1.45;
+}
+label { display: block; font-size: .8rem; color: var(--muted); margin: 12px 0 6px; }
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+}
+input:focus { border-color: var(--accent); }
+
+.btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter .15s, transform .05s;
+}
+.btn:hover { filter: brightness(1.15); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); color: #fff; }
+.btn.small { width: auto; margin: 0; padding: 8px 12px; font-size: .85rem; }
+
+.divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 22px 0 4px; color: var(--muted); font-size: .8rem;
+}
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--panel-2); }
+.error { color: #ff8a8e; font-size: .9rem; margin: 14px 0 0; line-height: 1.4; }
+/* ---------- Sala ---------- */
+.room { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+
+.topbar {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 10px 18px; background: var(--panel); flex-wrap: wrap;
+}
+.top-actions { display: flex; gap: 8px; }
+.code {
+  margin-left: 6px; padding: 4px 10px; border-radius: 8px;
+  background: var(--panel-2); font-family: ui-monospace, monospace; letter-spacing: .12em;
+}
+
+.count { margin-left: 8px; color: var(--muted); font-size: .9rem; }
+
+/* Muita gente na sala: blocos menores */
+.grid.dense { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 12px; }
+.grid.dense .avatar { width: 52px; height: 52px; font-size: 1.4rem; }
+.grid.dense .label { font-size: .75rem; left: 8px; bottom: 8px; }
+
+.main { flex: 1; min-height: 0; display: flex; }
+.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.grid {
+  flex: 1;
+  overflow: auto;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-content: start;
+}
+.tile {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 14px;
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+  outline: 3px solid transparent;
+  transition: outline-color .12s;
+}
+.tile.speaking { outline-color: var(--ok); }
+.avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: grid; place-items: center;
+  font-size: 2rem; font-weight: 700;
+}
+.label {
+  position: absolute; left: 10px; bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 8px;
+  background: rgba(0, 0, 0, .55); font-size: .85rem;
+}
+.ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; margin-top: 8px; border-radius: 10px; background: var(--panel-2); }
+.srv-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.edit-row { display: flex; gap: 8px; margin-top: 8px; }
+.edit-row input { flex: 1; min-width: 0; }
+.hint { color: var(--muted); font-size: .8rem; margin: 10px 0 0; line-height: 1.4; }
+.label { max-width: calc(100% - 20px); }
+.label .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+.vol { display: flex; align-items: center; gap: 4px; margin-left: 2px; }
+.vol .vb { background: none; border: 0; color: #fff; cursor: pointer; font-size: .95rem; padding: 0 2px; line-height: 1; }
+.vol .vb.off { opacity: .5; }
+.vol input[type=range] { width: 76px; height: 4px; margin: 0; cursor: pointer; accent-color: var(--accent); }
+.vol .pct { font-size: .7rem; color: #ccd0dc; min-width: 2.7em; text-align: right; }
+.grid.dense .vol input[type=range] { width: 52px; }
+.grid.dense .vol .pct { display: none; }
+.tile.screen {
+  grid-column: 1 / -1;
+  aspect-ratio: 16 / 9;
+  max-height: 70vh;
+  background: #000;
+  cursor: zoom-in;
+}
+.tile.screen video { width: 100%; height: 100%; object-fit: contain; border-radius: 14px; }
+.fs {
+  position: absolute; top: 8px; right: 8px; border: 0; border-radius: 8px;
+  padding: 6px 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 1rem; cursor: pointer;
+}
+.snd {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  border: 0; border-radius: 999px; padding: 12px 18px;
+  background: var(--accent); color: #fff; font-weight: 600; cursor: pointer;
+}
+
+/* ---------- Chat de texto ---------- */
+.chat {
+  width: 340px; flex: none; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--panel);
+  border-left: 1px solid rgba(0, 0, 0, .35);
+}
+.chat-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+.icon { background: none; border: 0; color: var(--muted); font-size: 1.1rem; cursor: pointer; }
+.msgs {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.msg { max-width: 92%; align-self: flex-start; }
+.msg .meta { font-size: .72rem; color: var(--muted); margin-bottom: 2px; }
+.msg .bubble {
+  background: var(--panel-2); padding: 8px 11px;
+  border-radius: 12px; border-top-left-radius: 4px;
+  word-break: break-word; white-space: pre-wrap;
+  font-size: .92rem; line-height: 1.35;
+}
+.msg.mine { align-self: flex-end; }
+.msg.mine .meta { text-align: right; }
+.msg.mine .bubble { background: var(--accent); color: #fff; border-top-left-radius: 12px; border-top-right-radius: 4px; }
+.msg a { color: inherit; text-decoration: underline; }
+.sys { align-self: center; text-align: center; color: var(--muted); font-size: .78rem; }
+.chat-form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid rgba(255, 255, 255, .07); }
+.send {
+  border: 0; border-radius: 10px; padding: 0 14px;
+  background: var(--accent); color: #fff; font-weight: 600; cursor: pointer;
+}
+
+/* ---------- Controles ---------- */
+.controls {
+  display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px; background: var(--panel);
+}
+.ctrl {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border: 0; border-radius: 999px;
+  background: var(--panel-2); color: var(--text);
+  font-size: .95rem; font-weight: 600; cursor: pointer;
+  transition: filter .15s;
+}
+.ctrl:hover { filter: brightness(1.2); }
+.ctrl.active { background: var(--accent); }
+.ctrl.off, .ctrl.danger { background: var(--danger); }
+.badge {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--danger); color: #fff; font-size: .72rem;
+  display: inline-grid; place-items: center;
+}
+.only-mobile { display: none; }
+.controls { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+/* Janela de opções (celular) */
+.sheet-bg {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(0, 0, 0, .6);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.sheet {
+  width: min(100%, 460px); max-height: 88vh; overflow-y: auto;
+  background: var(--panel); border-radius: 18px 18px 0 0;
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+}
+.sheet h2 { margin: 0 0 6px; font-size: 1.15rem; }
+.sheet p, .sheet li { color: var(--muted); font-size: .9rem; line-height: 1.45; }
+.sheet p { margin: 6px 0; }
+.sheet ul { padding-left: 18px; margin: 6px 0 0; }
+.sheet strong { color: var(--text); }
+.sheet .btn { margin-top: 10px; }
+@media (min-width: 600px) {
+  .sheet-bg { align-items: center; }
+  .sheet { border-radius: 18px; }
+}
+
+.toast {
+  position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
+  background: rgba(0, 0, 0, .8); color: #fff; padding: 10px 16px; border-radius: 10px;
+  font-size: .9rem; max-width: 90vw; z-index: 30;
+}
+
+@media (min-width: 821px) { #btn-chat-close { display: none; } }
+@media (max-width: 820px) {
+  .only-mobile { display: inline-flex; }
+  .chat {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(100%, 380px);
+    transform: translateX(100%); transition: transform .2s;
+    z-index: 20; box-shadow: -10px 0 30px rgba(0, 0, 0, .45);
+  }
+  .chat.open { transform: none; }
+}
+@media (max-width: 600px) {
+  .ctrl span.txt { display: none; }
+  .ctrl { padding: 12px 14px; }
+  .controls { gap: 8px; }
+}
+
+/* ---------- Conta (login / cadastro) ---------- */
+.auth {
+  min-height: 100%; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(circle at 20% 10%, #2b2f55 0%, var(--bg) 55%);
+}
+.auth-card {
+  width: 100%; max-width: 420px; background: var(--panel);
+  border-radius: 16px; padding: 28px; box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
+}
+.auth-card h1 { margin: 0 0 4px; font-size: 1.6rem; }
+.switch { margin: 18px 0 0; color: var(--muted); font-size: .9rem; }
+.switch a { color: #8f9bff; cursor: pointer; text-decoration: none; }
+.switch a:hover { text-decoration: underline; }
+.auth-card .btn { margin-top: 18px; }
+.auth-card .btn:disabled { opacity: .6; cursor: default; }
+
+:focus-visible { outline: 2px solid #8f9bff; outline-offset: 2px; }
+
+/* ---------- Tela principal (amigos) ---------- */
+.app {
+  --dotbg: #1a1b20;
+  height: 100vh; height: 100dvh;
+  display: grid; grid-template-columns: 72px 280px minmax(0, 1fr) 380px;
+  background: var(--bg);
+}
+
+.rail {
+  background: #15161a; display: flex; flex-direction: column; align-items: center;
+  gap: 8px; padding: 12px 0; overflow-y: auto; scrollbar-width: none;
+}
+.rail-btn {
+  position: relative; flex: none; width: 48px; height: 48px; border: 0; border-radius: 50%;
+  background: var(--panel); color: var(--text); font-size: 1.35rem; cursor: pointer;
+  display: grid; place-items: center; transition: border-radius .15s, background .15s;
+}
+.rail-btn:hover, .rail-btn.on { border-radius: 16px; background: var(--accent); }
+.rail-btn.on::before {
+  content: ""; position: absolute; left: -12px; width: 4px; height: 36px;
+  border-radius: 0 4px 4px 0; background: #fff;
+}
+.rail-btn.add { color: var(--ok); font-size: 1.6rem; }
+.rail-btn.add:hover { background: var(--ok); color: #0c1f14; }
+.rail-sep { flex: none; width: 32px; height: 2px; border-radius: 1px; background: var(--panel-2); }
+
+.side { background: #1a1b20; display: flex; flex-direction: column; min-height: 0; }
+.side-top { padding: 10px; box-shadow: 0 1px 0 rgba(0, 0, 0, .35); }
+.side-top input { padding: 8px 10px; border-radius: 6px; background: #111216; font-size: .88rem; }
+.side-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 2px;
+  padding: 10px 12px; border: 0; border-radius: 8px; background: none;
+  color: var(--muted); font: inherit; font-size: 1rem; text-align: left; cursor: pointer;
+}
+.nav-item:hover { background: rgba(255, 255, 255, .06); color: var(--text); }
+.nav-item.on { background: rgba(255, 255, 255, .1); color: #fff; }
+.ni { width: 24px; text-align: center; }
+.side-h { display: flex; justify-content: space-between; padding: 16px 12px 6px; color: var(--muted); font-size: .8rem; }
+
+.urow {
+  --dotbg: #1a1b20;
+  display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px;
+  border-radius: 8px; cursor: pointer;
+}
+.urow:hover { --dotbg: #26272d; background: rgba(255, 255, 255, .06); }
+.urow.off { opacity: .6; }
+
+.av {
+  position: relative; flex: none; width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff; font-weight: 700; font-size: .9rem;
+}
+.av.lg { width: 40px; height: 40px; font-size: 1.05rem; }
+.dot {
+  position: absolute; right: -3px; bottom: -3px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--ok); box-shadow: 0 0 0 3px var(--dotbg);
+}
+.dot.off { background: #80848e; }
+
+.info { flex: 1; min-width: 0; }
+.nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nm .un { font-weight: 400; font-size: .82rem; color: var(--muted); }
+.st { font-size: .82rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.dock { display: flex; align-items: center; gap: 10px; padding: 10px; background: #15161a; --dotbg: #15161a; }
+
+.act {
+  flex: none; width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: var(--panel); color: var(--muted); font-size: 1rem; cursor: pointer;
+}
+.act:hover { background: var(--panel-2); color: #fff; }
+.act.ok:hover { color: var(--ok); }
+.act.bad:hover { color: #ff8a8e; }
+
+.mainc { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.strip { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; font-size: .9rem; line-height: 1.4; }
+.strip.info { background: #23305a; color: #cfd6ff; }
+.strip.err { background: #4a2327; color: #ffc2c5; }
+.strip .act { background: rgba(255, 255, 255, .08); }
+.strip-act { display: flex; align-items: center; gap: 8px; }
+
+.tabs {
+  flex: none; display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, .35); overflow-x: auto; scrollbar-width: none;
+}
+.tabs-title { font-weight: 600; white-space: nowrap; }
+.tabs .sep { flex: none; width: 1px; height: 24px; background: rgba(255, 255, 255, .12); margin: 0 8px; }
+.tab {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 4px 12px; border: 0;
+  border-radius: 6px; background: none; color: var(--muted); font: inherit; font-size: .95rem;
+  font-weight: 500; white-space: nowrap; cursor: pointer;
+}
+.tab:hover { background: rgba(255, 255, 255, .06); color: var(--text); }
+.tab.on { background: rgba(255, 255, 255, .1); color: #fff; }
+.tab.cta { background: var(--accent); color: #fff; }
+.tab.cta:hover { filter: brightness(1.12); }
+.tab.cta.on { background: transparent; color: #8f9bff; }
+.menu-btn { display: none; }
+
+.page { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 28px; }
+.page h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.page h2 { margin: 0 0 4px; font-size: 1.2rem; }
+.count-h { margin: 18px 0 10px; color: var(--muted); font-size: .85rem; font-weight: 600; }
+#fr-search { background: #111216; }
+.frow {
+  --dotbg: var(--bg);
+  display: flex; align-items: center; gap: 12px; padding: 12px 10px;
+  border-top: 1px solid rgba(255, 255, 255, .07); border-radius: 8px;
+}
+.frow:hover { --dotbg: #25262c; background: rgba(255, 255, 255, .04); }
+.frow .nm { font-size: 1rem; }
+.frow-act { display: flex; align-items: center; gap: 8px; }
+.empty { margin: 40px 0; text-align: center; color: var(--muted); line-height: 1.5; }
+.ok-msg { color: var(--ok); font-size: .9rem; margin: 14px 0 0; }
+
+.active { border-left: 1px solid rgba(0, 0, 0, .35); padding: 20px 16px; overflow-y: auto; min-height: 0; }
+.active h2 { margin: 0 0 16px; font-size: 1.25rem; }
+.acard { margin-bottom: 14px; overflow: hidden; border-radius: 12px; background: var(--panel); --dotbg: var(--panel); }
+.acard-h { display: flex; align-items: center; gap: 12px; padding: 14px; }
+.acard-b {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 14px; background: rgba(0, 0, 0, .2);
+}
+
+.menu {
+  position: fixed; z-index: 50; min-width: 180px; padding: 6px; border-radius: 8px;
+  background: #111216; box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+}
+.menu button {
+  display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 4px; background: none;
+  color: var(--text); font: inherit; font-size: .92rem; text-align: left; cursor: pointer;
+}
+.menu button:hover { background: var(--accent); color: #fff; }
+.menu button.danger { color: #ff8a8e; }
+.menu button.danger:hover { background: var(--danger); color: #fff; }
+
+.acct { display: flex; align-items: center; gap: 14px; margin: 12px 0 4px; }
+.btn.danger { background: var(--danger); color: #fff; }
+.nav-bg { display: none; }
+
+@media (max-width: 1180px) {
+  .app { grid-template-columns: 72px 280px minmax(0, 1fr); }
+  .active { display: none; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .rail, .side {
+    position: fixed; top: 0; bottom: 0; z-index: 25;
+    transition: transform .2s, visibility .2s;
+    visibility: hidden;
+  }
+  .rail { left: 0; width: 72px; transform: translateX(-100%); }
+  /* o painel começa 72px à direita da barra de servidores: recua isso também */
+  .side { left: 72px; width: min(280px, calc(100vw - 72px)); transform: translateX(calc(-100% - 72px)); }
+  .app.nav-open .rail, .app.nav-open .side { visibility: visible; }
+  .app.nav-open .rail, .app.nav-open .side { transform: none; }
+  .app.nav-open .nav-bg { display: block; position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .55); }
+  .menu-btn { display: inline-block; }
+  .page { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+  <!-- LOGIN / CADASTRO -->
+  <main id="auth" class="auth" hidden>
+    <div class="auth-card">
+      <h1 id="auth-title">Bem-vindo de volta!</h1>
+      <p id="auth-sub" class="sub">Entre para falar com seus amigos.</p>
+
+      <p id="auth-invite" class="invite" hidden></p>
+
+      <form id="auth-form" novalidate>
+        <div id="f-display" hidden>
+          <label for="a-display">Nome de exibição</label>
+          <input id="a-display" type="text" maxlength="20" placeholder="Como seus amigos vão te ver" autocomplete="nickname">
+        </div>
+
+        <label for="a-user">Nome de usuário</label>
+        <input id="a-user" type="text" maxlength="20" placeholder="ex.: ana.lima" autocomplete="username" autocapitalize="none" spellcheck="false">
+
+        <label for="a-pass">Senha</label>
+        <input id="a-pass" type="password" maxlength="128" autocomplete="current-password">
+
+        <div id="f-pass2" hidden>
+          <label for="a-pass2">Repita a senha</label>
+          <input id="a-pass2" type="password" maxlength="128" autocomplete="new-password">
+        </div>
+
+        <p id="auth-error" class="error" role="alert" hidden></p>
+        <button id="auth-submit" class="btn primary" type="submit">Entrar</button>
+      </form>
+
+      <p class="switch"><span id="auth-switch-text">Precisa de uma conta?</span> <a id="auth-switch" href="#">Registre-se</a></p>
+
+      <p id="auth-offline" class="notice" hidden>
+        Não encontrei o servidor de contas. Na pasta do projeto, rode <strong>node server.js</strong> e abra
+        <strong>http://localhost:3000</strong> (veja o LEIA-ME).
+      </p>
+      <p id="inapp-warning" class="notice" hidden>
+        Você abriu o link por dentro de outro aplicativo (Instagram, Facebook, TikTok…). Nesses navegadores o microfone
+        e a câmera costumam não funcionar. Toque nos três pontinhos e escolha "Abrir no navegador" (Chrome ou Safari).
+      </p>
+    </div>
+  </main>
+
+  <!-- TELA PRINCIPAL -->
+  <div id="app" class="app" hidden>
+    <nav id="rail" class="rail" aria-label="Servidores"></nav>
+
+    <aside class="side">
+      <div class="side-top">
+        <input id="side-search" type="search" placeholder="Buscar amigos" aria-label="Buscar amigos" autocomplete="off">
+      </div>
+      <div class="side-scroll">
+        <button id="nav-friends" class="nav-item on" type="button"><span class="ni">👥</span> Amigos</button>
+        <button id="nav-quick" class="nav-item" type="button"><span class="ni">🎙️</span> Sala rápida</button>
+        <div class="side-h"><span>Amigos</span><span id="side-count"></span></div>
+        <div id="side-list"></div>
+      </div>
+      <div class="dock">
+        <div id="dock-av"></div>
+        <div class="info"><div id="dock-name" class="nm"></div><div class="st">Online</div></div>
+        <button id="btn-account" class="act" type="button" title="Minha conta" aria-label="Minha conta">⚙️</button>
+      </div>
+    </aside>
+
+    <section class="mainc">
+      <div id="banner-err" class="strip err" role="alert" hidden>
+        <span id="banner-err-text"></span>
+        <button id="banner-err-x" class="act" type="button" aria-label="Fechar aviso">✕</button>
+      </div>
+      <div id="status" class="strip info" hidden>
+        <span id="status-text"></span>
+        <button id="btn-cancel" class="btn small" type="button">Cancelar</button>
+      </div>
+      <div id="banner-inv" class="strip info" hidden>
+        <span id="banner-inv-text"></span>
+        <span class="strip-act">
+          <button id="banner-inv-go" class="btn small primary" type="button">Entrar na sala</button>
+          <button id="banner-inv-x" class="act" type="button" aria-label="Fechar convite">✕</button>
+        </span>
+      </div>
+
+      <header id="tabs" class="tabs">
+        <button class="icon menu-btn" type="button" aria-label="Abrir menu">☰</button>
+        <span class="tabs-title">👥 Amigos</span>
+        <span class="sep"></span>
+        <button class="tab on" type="button" data-tab="online">Disponível</button>
+        <button class="tab" type="button" data-tab="all">Todos</button>
+        <button class="tab" type="button" data-tab="pending">Pendentes <span id="pend-badge" class="badge" hidden>0</span></button>
+        <button class="tab cta" type="button" data-tab="add">Adicionar amigo</button>
+      </header>
+      <header id="srv-head" class="tabs" hidden>
+        <button class="icon menu-btn" type="button" aria-label="Abrir menu">☰</button>
+        <span id="srv-title" class="tabs-title"></span>
+      </header>
+
+      <div id="page-friends" class="page">
+        <div id="fr-add" hidden>
+          <h2>Adicionar amigo</h2>
+          <p class="sub">Digite o nome de usuário de quem você quer adicionar.</p>
+          <form id="add-form" class="edit-row" autocomplete="off">
+            <input id="add-user" type="text" maxlength="21" placeholder="Nome de usuário" aria-label="Nome de usuário" autocapitalize="none" spellcheck="false">
+            <button class="btn primary small" type="submit">Enviar pedido</button>
+          </form>
+          <p id="add-msg" hidden></p>
+        </div>
+        <div id="fr-search-wrap"><input id="fr-search" type="search" placeholder="Buscar" aria-label="Buscar" autocomplete="off"></div>
+        <div id="fr-count" class="count-h"></div>
+        <div id="fr-list"></div>
+      </div>
+
+      <div id="page-server" class="page" hidden><div id="srv-body"></div></div>
+    </section>
+
+    <aside class="active" aria-label="Ativo agora">
+      <h2>Ativo agora</h2>
+      <div id="active-list"></div>
+    </aside>
+
+    <div id="nav-bg" class="nav-bg"></div>
+  </div>
+
+  <!-- SALA -->
+  <section id="room" class="room" hidden>
+    <header class="topbar">
+      <div><strong>Sala</strong> <span id="room-code" class="code"></span> <span id="room-count" class="count" title="Pessoas na sala"></span></div>
+      <div class="top-actions">
+        <button id="btn-copy-code" class="btn small">Copiar código</button>
+        <button id="btn-copy-link" class="btn small">Copiar link de convite</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <div class="stage">
+        <div id="grid" class="grid"></div>
+      </div>
+
+      <aside id="chat" class="chat">
+        <div class="chat-head">
+          <strong>💬 Chat da sala</strong>
+          <button id="btn-chat-close" class="icon" title="Fechar chat">✕</button>
+        </div>
+        <div id="msgs" class="msgs" aria-live="polite"></div>
+        <form id="chat-form" class="chat-form" autocomplete="off">
+          <input id="chat-input" type="text" maxlength="500" placeholder="Escreva uma mensagem…">
+          <button type="submit" class="send">Enviar</button>
+        </form>
+      </aside>
+    </div>
+
+    <footer class="controls">
+      <button id="btn-mute" class="ctrl" title="Silenciar / ativar microfone">🎤 <span class="txt">Microfone</span></button>
+      <button id="btn-share" class="ctrl" title="Compartilhar tela">🖥️ <span class="txt">Compartilhar tela</span></button>
+      <button id="btn-camera" class="ctrl" title="Compartilhar câmera">📷 <span class="txt">Compartilhar câmera</span></button>
+      <button id="btn-flip" class="ctrl" title="Virar câmera (frontal/traseira)" hidden>🔄 <span class="txt">Virar câmera</span></button>
+      <button id="btn-chat" class="ctrl only-mobile" title="Abrir chat">💬 <span class="txt">Chat</span> <span id="chat-badge" class="badge" hidden>0</span></button>
+      <button id="btn-leave" class="ctrl danger" title="Sair da sala">📞 <span class="txt">Sair</span></button>
+    </footer>
+  </section>
+
+  <!-- Opções de compartilhamento no celular -->
+  <div id="share-sheet" class="sheet-bg" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <h2 id="sheet-title">Compartilhar pelo celular</h2>
+      <p>Os navegadores de celular (Chrome, Safari, Firefox e Samsung Internet) não permitem enviar a <strong>tela</strong>.
+         É uma limitação do Android e do iPhone, não deste app. Você pode compartilhar a <strong>câmera</strong>:</p>
+      <button id="btn-open-cam" class="btn primary">📷 Compartilhar câmera</button>
+      <p style="margin-top:16px"><strong>Para mostrar a tela do celular</strong>, espelhe o celular no computador
+         e compartilhe a janela do computador nesta sala:</p>
+      <ul>
+        <li>Android: programa gratuito scrcpy (com cabo USB) ou "Projetar neste PC" do Windows.</li>
+        <li>iPhone: espelhamento (AirPlay) para um Mac, ou QuickTime com cabo USB.</li>
+      </ul>
+      <button id="btn-sheet-close" class="btn">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Escolher a câmera (celular) -->
+  <div id="cam-sheet" class="sheet-bg" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cam-title">
+      <h2 id="cam-title">Qual câmera?</h2>
+      <button id="btn-cam-front" class="btn primary">🤳 Câmera frontal</button>
+      <button id="btn-cam-back" class="btn primary">📷 Câmera traseira</button>
+      <p>Depois dá para trocar entre elas com o botão 🔄, sem parar de transmitir.</p>
+      <button id="btn-cam-close" class="btn">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   Chat de Voz — voz + chat de texto + compartilhamento de tela
+   WebRTC com PeerJS (servidor de sinalização gratuito).
+   Cada pessoa se conecta direto com todas as outras (P2P).
+   ========================================================= */
+
+const $ = (sel) => document.querySelector(sel);
+
+const IS_FILE = location.protocol === 'file:';
+const PREFIX = 'vc-';
+const MAX_MSG = 500;
+const MOBILE_MAX = 820;
+const MAX_ROOM = 15;   // limite de pessoas por sala (você incluso)
+
+const JOIN_TIMEOUT = 20000;   // tempo máximo para conectar com quem criou a sala
+
+/* Servidores de conexão.
+   ATENÇÃO: o PeerJS já traz servidores de retransmissão (TURN) por padrão. Esta lista SUBSTITUI a padrão,
+   então o TURN precisa estar aqui: sem ele, quem está em redes diferentes (4G x wi-fi, redes de
+   empresa) muitas vezes não consegue entrar na sala. */
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:global.stun.twilio.com:3478' },
+  // TURN público do PeerJS: gratuito e compartilhado (pode ficar lento ou cair em horários de pico)
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }
+  // Para uso frequente, crie um TURN gratuito seu (Metered, Cloudflare...) e acrescente aqui:
+  // , { urls: 'turn:SEU_SERVIDOR:3478', username: 'USUARIO', credential: 'SENHA' }
+];
+
+const PEER_OPTIONS = { debug: 0, config: { iceServers: ICE_SERVERS } };
+
+const S = {
+  peer: null,
+  name: '',
+  code: '',
+  isHost: false,
+  hostOk: false,
+  entered: false,          // já está dentro da sala?
+  joinTimer: null,
+  hostConn: null,          // conexão com quem criou a sala (quando você entra por código)
+  mic: null,
+  noMic: false,
+  screen: null,
+  shareKind: 'screen',     // 'screen' (tela) ou 'camera'
+  muted: false,
+  openTimer: null,
+  peers: new Map(),        // id -> { id, conn }
+  pending: new Set(),      // ids com conexão em andamento
+  names: new Map(),        // id -> nome
+  audios: new Map(),       // id -> <audio>
+  srv: null,               // servidor aberto (ou null se estiver em sala rápida)
+  chTitle: '',
+  viaSrv: false,           // a sala atual é uma sala de voz de servidor?
+  user: null,              // conta conectada
+  vols: new Map(),         // id -> volume escolhido por mim (0 a 2; 1 = normal)
+  boost: new Map(),        // id -> { src, gain } (reforço acima de 100%)
+  screenCalls: new Map()   // id -> MediaConnection (tela que EU envio)
+};
+
+const tiles = new Map();        // chave -> { el, av?, nm?, mi? }
+const levelTimers = new Map();  // chave -> intervalo do indicador de fala
+const chatLog = [];             // últimas mensagens
+const seenMsgs = new Set();     // ids já exibidos
+let unread = 0;
+let audioCtx = null;
+
+/* ---------------- Utilidades ---------------- */
+
+function store(key, value) {
+  try {
+    if (value === undefined) return localStorage.getItem(key);
+    localStorage.setItem(key, value);
+  } catch (e) { /* armazenamento indisponível: ignora */ }
+  return null;
+}
+
+async function getPeerCtor() {
+  for (let i = 0; i < 50; i++) {
+    const ctor = window.Peer || (window.peerjs && window.peerjs.Peer);
+    if (ctor) return ctor;
+    if (window.__peerFailed) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return null;
+}
+
+function toast(msg, ms = 3200) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (t.hidden = true), ms);
+}
+
+function setError(msg) {
+  $('#banner-err-text').textContent = msg || '';
+  $('#banner-err').hidden = !msg;
+}
+
+/* Aviso de "Conectando…" no topo da tela, com botão de cancelar */
+function setStatus(msg) {
+  $('#status-text').textContent = msg || '';
+  $('#status').hidden = !msg;
+}
+
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let c = '';
+  for (let i = 0; i < 6; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  return c;
+}
+
+/* ---------------- Blocos de participantes ---------------- */
+
+function makeTile(key, name, local = false) {
+  if (tiles.has(key)) return tiles.get(key);
+
+  const el = document.createElement('div');
+  el.className = 'tile' + (local ? ' local' : '');
+
+  const av = document.createElement('div');
+  av.className = 'avatar';
+
+  const label = document.createElement('div');
+  label.className = 'label';
+  const nm = document.createElement('span');
+  nm.className = 'nm';
+  const mi = document.createElement('span');
+  mi.textContent = '🔇';
+  mi.hidden = true;
+  label.append(nm, mi);
+
+  const t = { el, av, nm, mi };
+
+  // Controle de volume ao lado do nome (só para os outros, não para você)
+  if (!local) {
+    const vol = document.createElement('div');
+    vol.className = 'vol';
+    const vb = document.createElement('button');
+    vb.type = 'button';
+    vb.className = 'vb';
+    const vr = document.createElement('input');
+    vr.type = 'range';
+    vr.min = '0'; vr.max = '200'; vr.step = '5';
+    vr.title = 'Volume desta pessoa (clique duas vezes para voltar a 100%)';
+    const pct = document.createElement('span');
+    pct.className = 'pct';
+    vol.append(vb, vr, pct);
+    label.append(vol);
+    t.vb = vb; t.vr = vr; t.pct = pct;
+
+    vr.addEventListener('input', () => setVolume(key, Number(vr.value) / 100));
+    vr.addEventListener('dblclick', () => setVolume(key, 1));
+    let last = 1;
+    vb.addEventListener('click', () => {
+      const cur = S.vols.has(key) ? S.vols.get(key) : 1;
+      if (cur > 0) { last = cur; setVolume(key, 0); }
+      else setVolume(key, last || 1);
+    });
+  }
+
+  el.append(av, label);
+  $('#grid').append(el);
+
+  tiles.set(key, t);
+  setTileName(key, name);
+  if (!local) applyVolume(key);
+  updateDensity();
+  return t;
+}
+
+function setTileName(key, name) {
+  const t = tiles.get(key);
+  if (!t || !t.nm) return;
+  t.nm.textContent = name + (key === 'me' ? ' (você)' : '');
+  t.av.textContent = (name[0] || '?').toUpperCase();
+}
+
+function removeTile(key) {
+  const t = tiles.get(key);
+  if (!t) return;
+  const v = t.el.querySelector('video');
+  if (v) v.srcObject = null;
+  t.el.remove();
+  tiles.delete(key);
+  updateDensity();
+}
+
+/* Blocos compactos quando há muita gente */
+function updateDensity() {
+  const people = [...tiles.keys()].filter((k) => !k.startsWith('screen-')).length;
+  $('#grid').classList.toggle('dense', people > 6);
+}
+
+function updateCount() {
+  $('#room-count').textContent = '👥 ' + (S.peers.size + 1) + '/' + MAX_ROOM;
+}
+
+function addScreenTile(key, stream, text, local = false) {
+  removeTile(key);
+  const el = document.createElement('div');
+  el.className = 'tile screen';
+
+  const v = document.createElement('video');
+  v.autoplay = true;
+  v.playsInline = true;
+  v.muted = local;           // não ouvir o próprio áudio da tela
+  v.srcObject = stream;
+
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = text;
+
+  const fs = document.createElement('button');
+  fs.className = 'fs';
+  fs.type = 'button';
+  fs.title = 'Tela cheia';
+  fs.textContent = '⛶';
+  const goFull = () => {
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();   // iPhone/iPad
+  };
+  fs.addEventListener('click', goFull);
+  el.addEventListener('dblclick', goFull);
+
+  el.append(v, label, fs);
+  el.title = 'Clique duas vezes para tela cheia';
+  $('#grid').prepend(el);
+  tiles.set(key, { el });
+
+  // Alguns navegadores (principalmente no celular) bloqueiam vídeo com som sem um toque
+  const started = v.play();
+  if (started && started.catch) {
+    started.catch(() => {
+      v.muted = true;
+      v.play().catch(() => {});
+      if (local) return;
+      const snd = document.createElement('button');
+      snd.className = 'snd';
+      snd.type = 'button';
+      snd.textContent = '🔊 Ativar som';
+      snd.addEventListener('click', () => { v.muted = false; v.play().catch(() => {}); snd.remove(); });
+      el.append(snd);
+    });
+  }
+}
+
+/* ---------------- Volume individual ---------------- */
+
+function setVolume(id, v) {
+  S.vols.set(id, Math.max(0, Math.min(2, v)));
+  applyVolume(id);
+}
+
+function dropBoost(id) {
+  const b = S.boost.get(id);
+  if (!b) return;
+  try { b.src.disconnect(); b.gain.disconnect(); } catch (e) {}
+  S.boost.delete(id);
+}
+
+/* Até 100%: volume normal do <audio>. Acima de 100%: o <audio> fica no máximo e um
+   ganho extra (Web Audio) soma o restante, chegando a 200%. */
+function applyVolume(id) {
+  const v = S.vols.has(id) ? S.vols.get(id) : 1;
+  const a = S.audios.get(id);
+  if (a) a.volume = Math.min(v, 1);
+
+  const extra = Math.max(v - 1, 0);
+  let b = S.boost.get(id);
+  if (extra > 0 && !b && a && a.srcObject) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const src = audioCtx.createMediaStreamSource(a.srcObject);
+      const gain = audioCtx.createGain();
+      src.connect(gain);
+      gain.connect(audioCtx.destination);
+      b = { src, gain };
+      S.boost.set(id, b);
+    } catch (e) { /* sem reforço neste navegador: fica no máximo de 100% */ }
+  }
+  if (b) b.gain.gain.value = extra;
+
+  const t = tiles.get(id);
+  if (t && t.vr) {
+    t.vr.value = String(Math.round(v * 100));
+    t.pct.textContent = Math.round(v * 100) + '%';
+    t.vb.textContent = v > 1 ? '🔊' : (v >= 0.5 ? '🔉' : '🔈');
+    t.vb.classList.toggle('off', v === 0);
+    t.vb.title = v === 0 ? 'Reativar o som desta pessoa' : 'Silenciar esta pessoa (só para você)';
+  }
+}
+
+/* Indicador de quem está falando */
+function watchLevel(stream, key) {
+  try {
+    if (!stream.getAudioTracks().length) return;
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const src = audioCtx.createMediaStreamSource(stream);
+    const an = audioCtx.createAnalyser();
+    an.fftSize = 512;
+    src.connect(an);
+    const buf = new Uint8Array(an.fftSize);
+    clearInterval(levelTimers.get(key));
+    const timer = setInterval(() => {
+      const t = tiles.get(key);
+      if (!t) { clearInterval(timer); levelTimers.delete(key); return; }
+      an.getByteTimeDomainData(buf);
+      let max = 0;
+      for (const v of buf) max = Math.max(max, Math.abs(v - 128));
+      const talking = max > 12 && !(key === 'me' && (S.muted || S.noMic));
+      t.el.classList.toggle('speaking', talking);
+    }, 150);
+    levelTimers.set(key, timer);
+  } catch (e) { /* sem indicador, tudo bem */ }
+}
+
+/* Áudio "mudo" para quem entra sem microfone (só ouve e usa o chat) */
+function silentStream() {
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx.createMediaStreamDestination().stream;
+}
+
+/* ---------------- Entrada / saída da sala ---------------- */
+
+async function start(host, code, auto) {
+  if (S.peer) return;
+  setError('');
+
+  const PeerCtor = await getPeerCtor();
+  if (!PeerCtor) {
+    return setError('Não consegui carregar o componente de conexão (PeerJS). Verifique a internet e recarregue a página.');
+  }
+
+  S.name = S.user.displayName;
+  S.isHost = host;
+  S.code = code;
+  S.hostOk = false;
+  S.noMic = false;
+  S.entered = false;
+  S.hostConn = null;
+
+  let mic = null;
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      mic = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+    } catch (e) { /* sem permissão ou sem microfone */ }
+  }
+  if (!mic) {
+    // Sem microfone (permissão negada, navegador interno de app...): entra só ouvindo e usando o chat,
+    // em vez de travar a entrada com uma pergunta que alguns navegadores nem chegam a mostrar.
+    try { mic = silentStream(); S.noMic = true; }
+    catch (e) { return setError('Seu navegador não suporta áudio. Abra o endereço direto no Chrome ou no Safari.'); }
+  }
+  S.mic = mic;
+
+  setStatus(auto ? 'Entrando na sala de voz…' : host ? 'Criando a sala…' : 'Conectando à sala ' + code + '…');
+  const peer = new PeerCtor(host ? PREFIX + code : undefined, PEER_OPTIONS);
+  S.peer = peer;
+
+  S.openTimer = setTimeout(() => {
+    if (S.peer === peer && !peer.open) {
+      leave('Não consegui conectar ao servidor. Verifique sua internet e tente de novo.');
+    }
+  }, 15000);
+
+  peer.on('open', () => {
+    clearTimeout(S.openTimer);
+    if (host) return enterRoom();
+
+    // Quem entra por código só aparece na sala depois que a conexão com o criador da sala abrir.
+    // Antes isso era "silencioso": a pessoa ficava numa sala vazia sem saber que não conectou.
+    S.hostConn = connectTo(PREFIX + code);
+    S.joinTimer = setTimeout(() => {
+      if (S.peer !== peer || S.entered) return;
+      let ice = 'sem resposta';
+      try { ice = S.hostConn.peerConnection.iceConnectionState; } catch (e) { /* sem detalhe */ }
+      leave('Não consegui conectar com quem criou a sala. Confira se ele ainda está com a página aberta e na frente ' +
+            '(no celular, a aba precisa ficar aberta). Se vocês estão em redes diferentes (ex.: 4G e wi-fi), ' +
+            'a rede pode estar bloqueando a conexão. [conexão: ' + ice + ']');
+    }, JOIN_TIMEOUT);
+  });
+
+  peer.on('connection', (conn) => setupConn(conn, false));
+
+  peer.on('call', (call) => {
+    const isScreen = call.metadata && call.metadata.type === 'screen';
+    call.answer(isScreen ? undefined : S.mic);
+    wireCall(call);
+  });
+
+  peer.on('disconnected', () => {
+    // perdeu o servidor de conexão (rede oscilou, aba em segundo plano): tenta voltar com o mesmo código
+    const retry = (n) => {
+      if (S.peer !== peer || peer.destroyed || !peer.disconnected || n > 10) return;
+      try { peer.reconnect(); } catch (e) { /* tenta de novo */ }
+      setTimeout(() => retry(n + 1), 3000);
+    };
+    retry(0);
+  });
+
+  peer.on('error', (err) => {
+    // Sala de servidor: tenta entrar; se ninguém está nela, vira o anfitrião (e vice-versa em caso de corrida)
+    const swap = (nextHost, nextAuto) => {
+      clearTimeout(S.openTimer); clearTimeout(S.joinTimer);
+      S.mic.getTracks().forEach((t) => t.stop());
+      try { peer.destroy(); } catch (e) {}
+      S.peer = null;
+      return start(nextHost, code, nextAuto);
+    };
+    if (auto === true && !host && err.type === 'peer-unavailable' && !S.hostOk) return swap(true, 'host');
+    if (auto === 'host' && host && err.type === 'unavailable-id') return swap(false, false);
+    if (err.type === 'unavailable-id' && host) {
+      // código já em uso: gera outro e tenta de novo
+      clearTimeout(S.openTimer);
+      S.mic.getTracks().forEach((t) => t.stop());
+      try { peer.destroy(); } catch (e) {}
+      S.peer = null;
+      return start(true, genCode());
+    }
+    if (err.type === 'peer-unavailable' && !S.hostOk) {
+      return leave('Sala não encontrada. Confira o código e se quem criou a sala ainda está com a página aberta e na frente (no celular, a aba precisa ficar aberta).');
+    }
+    if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
+      if (!S.entered) return leave('Não consegui falar com o servidor de conexão (' + err.type + '). Tente de novo em instantes.');
+      return toast('Problema de conexão com o servidor.');
+    }
+    if (!S.entered) leave('Não foi possível conectar (' + err.type + ').');
+  });
+}
+
+function enterRoom() {
+  if (S.entered) return;
+  S.entered = true;
+  clearTimeout(S.joinTimer);
+  setStatus('');
+  $('#app').hidden = true;
+  $('#room').hidden = false;
+  $('#room-code').textContent = S.chTitle || S.code;
+  const me = makeTile('me', S.name, true);
+  me.mi.hidden = !S.noMic;
+  watchLevel(S.mic, 'me');
+  updateButtons();
+  updateCount();
+  keepAwake(true);
+  addSystem('Chat da sala ' + S.code + '. As mensagens ficam só enquanto a sala estiver aberta.');
+  if (S.noMic) addSystem('Você entrou sem microfone (permissão negada ou aparelho sem microfone): só ouve e usa o chat. Para falar, libere o microfone no cadeado ao lado do endereço e entre de novo.');
+  sendPresence();
+  if (S.isHost) addSystem('Você criou esta sala. Envie o link ou o código aos amigos e mantenha esta página aberta e na frente: se você sair ou fechar, ninguém novo consegue entrar.');
+}
+
+function leave(message) {
+  clearTimeout(S.openTimer);
+  clearTimeout(S.joinTimer);
+  S.entered = false;
+  S.hostConn = null;
+  setStatus('');
+  keepAwake(false);
+  stopShare();
+  try { S.peers.forEach((p) => p.conn && p.conn.close()); } catch (e) {}
+  if (S.peer) { try { S.peer.destroy(); } catch (e) {} }
+  if (S.mic) S.mic.getTracks().forEach((t) => t.stop());
+  S.audios.forEach((a) => { a.srcObject = null; a.remove(); });
+  [...S.boost.keys()].forEach(dropBoost);
+  levelTimers.forEach((t) => clearInterval(t));
+  levelTimers.clear();
+
+  S.peer = null; S.mic = null; S.muted = false; S.noMic = false;
+  S.peers.clear(); S.pending.clear(); S.names.clear(); S.audios.clear(); S.vols.clear(); S.boost.clear(); S.screenCalls.clear();
+  [...tiles.keys()].forEach(removeTile);
+
+  $('#msgs').textContent = '';
+  chatLog.length = 0;
+  seenMsgs.clear();
+  unread = 0;
+  updateBadge();
+  setChatOpen(false);
+
+  $('#room').hidden = true;
+  $('#app').hidden = false;
+  S.chTitle = '';
+  route();
+  sendPresence();
+  setError(typeof message === 'string' ? message : '');
+}
+
+/* ---------------- Conexões entre participantes ---------------- */
+
+function connectTo(id) {
+  if (!S.peer || id === S.peer.id || S.peers.has(id) || S.pending.has(id)) return;
+  S.pending.add(id);
+  const conn = S.peer.connect(id, { reliable: true });
+  setupConn(conn, true);
+  return conn;
+}
+
+function setupConn(conn, initiator) {
+  const id = conn.peer;
+
+  conn.on('open', () => {
+    S.pending.delete(id);
+    if (S.peers.has(id)) return;
+
+    // O anfitrião é quem controla a entrada: sala cheia, ninguém mais entra
+    if (S.isHost && !initiator && S.peers.size + 1 >= MAX_ROOM) {
+      try { conn.send({ t: 'full' }); } catch (e) {}
+      setTimeout(() => { try { conn.close(); } catch (e) {} }, 400);
+      return;
+    }
+
+    S.peers.set(id, { id, conn });
+    if (id === PREFIX + S.code) S.hostOk = true;
+    if (!S.entered && S.hostOk) enterRoom();   // quem entra só aparece na sala depois de conectar com o criador
+    updateCount();
+
+    makeTile(id, S.names.get(id) || 'Conectando…');
+    conn.send({ t: 'hello', name: S.name, muted: S.muted || S.noMic });
+
+    // O anfitrião apresenta os outros participantes e manda o histórico do chat
+    if (S.isHost && !initiator) {
+      conn.send({ t: 'peers', ids: [...S.peers.keys()].filter((p) => p !== id) });
+      conn.send({ t: 'history', msgs: chatLog.slice(-50) });
+    }
+
+    // Quem inicia a conexão também inicia a chamada de voz
+    if (initiator) {
+      const call = S.peer.call(id, S.mic, { metadata: { type: 'voice' } });
+      wireCall(call);
+    }
+
+    // Se já estou compartilhando a tela, envio para o novo participante
+    if (S.screen) startScreenCall(id);
+  });
+
+  conn.on('data', (d) => onData(id, d));
+  conn.on('close', () => dropPeer(id));
+  conn.on('error', () => { S.pending.delete(id); dropPeer(id); });
+}
+
+function onData(id, d) {
+  if (!d || typeof d !== 'object') return;
+
+  switch (d.t) {
+    case 'hello': {
+      const first = !S.names.has(id);
+      const name = String(d.name || 'Convidado').slice(0, 20);
+      S.names.set(id, name);
+      setTileName(id, name);
+      const t = tiles.get(id);
+      if (t) t.mi.hidden = !d.muted;
+      if (first) { toast(name + ' entrou na sala'); addSystem(name + ' entrou na sala'); }
+      break;
+    }
+    case 'peers':
+      (Array.isArray(d.ids) ? d.ids : []).forEach((x) => { if (typeof x === 'string') connectTo(x); });
+      break;
+    case 'mute': {
+      const t = tiles.get(id);
+      if (t) t.mi.hidden = !d.muted;
+      break;
+    }
+    case 'screen':
+      if (!d.on) removeTile('screen-' + id);
+      break;
+    case 'full':
+      if (id === PREFIX + S.code) leave('Sala cheia: o limite é de ' + MAX_ROOM + ' pessoas.');
+      break;
+    case 'chat': {
+      const m = cleanMsg(d.m);
+      if (!m) break;
+      m.from = id;
+      m.name = S.names.get(id) || m.name;
+      m.ts = Date.now();
+      if (addMessage(m) && !chatVisible()) { unread++; updateBadge(); }
+      break;
+    }
+    case 'history': {
+      if (id !== PREFIX + S.code) break;            // só o anfitrião manda histórico
+      (Array.isArray(d.msgs) ? d.msgs : []).slice(-50).forEach((x) => {
+        const m = cleanMsg(x);
+        if (m) addMessage(m);
+      });
+      break;
+    }
+  }
+}
+
+function dropPeer(id) {
+  if (!S.peers.has(id) && !tiles.has(id)) return;
+  const name = S.names.get(id);
+  S.peers.delete(id);
+  S.pending.delete(id);
+  S.names.delete(id);
+  const a = S.audios.get(id);
+  if (a) { a.srcObject = null; a.remove(); S.audios.delete(id); }
+  dropBoost(id);
+  S.vols.delete(id);
+  const sc = S.screenCalls.get(id);
+  if (sc) { try { sc.close(); } catch (e) {} S.screenCalls.delete(id); tuneScreen(); }
+  updateCount();
+  removeTile(id);
+  removeTile('screen-' + id);
+  if (name) { toast(name + ' saiu da sala'); addSystem(name + ' saiu da sala'); }
+}
+
+function wireCall(call) {
+  const isScreen = call.metadata && call.metadata.type === 'screen';
+
+  call.on('stream', (stream) => {
+    if (isScreen) {
+      const who = S.names.get(call.peer) || 'Alguém';
+      const cam = !!(call.metadata && call.metadata.kind === 'camera');
+      if (!tiles.has('screen-' + call.peer)) toast(who + (cam ? ' está compartilhando a câmera' : ' está compartilhando a tela'));
+      addScreenTile('screen-' + call.peer, stream, who + (cam ? ' — câmera' : ' — tela'));
+    } else {
+      attachAudio(call.peer, stream);
+    }
+  });
+
+  call.on('close', () => { if (isScreen) removeTile('screen-' + call.peer); });
+  call.on('error', () => {});
+}
+
+function attachAudio(id, stream) {
+  let a = S.audios.get(id);
+  if (!a) {
+    a = document.createElement('audio');
+    a.autoplay = true;
+    document.body.append(a);
+    S.audios.set(id, a);
+  }
+  dropBoost(id);                 // o reforço precisa ser refeito para o novo stream
+  a.srcObject = stream;
+  a.play().catch(() => {});
+  makeTile(id, S.names.get(id) || 'Conectando…');
+  applyVolume(id);
+  watchLevel(stream, id);
+}
+
+function broadcast(msg) {
+  S.peers.forEach((p) => { try { p.conn.send(msg); } catch (e) {} });
+}
+
+/* ---------------- Chat de texto ---------------- */
+
+function cleanMsg(m) {
+  if (!m || typeof m.text !== 'string' || typeof m.id !== 'string') return null;
+  const text = m.text.slice(0, MAX_MSG);
+  if (!text.trim()) return null;
+  return {
+    id: m.id.slice(0, 40),
+    from: String(m.from || '').slice(0, 80),
+    name: String(m.name || 'Convidado').slice(0, 20),
+    text,
+    ts: Number(m.ts) || Date.now()
+  };
+}
+
+function linkify(text, parent) {
+  const re = /https?:\/\/[^\s<>"]+/g;
+  let last = 0;
+  let match;
+  while ((match = re.exec(text))) {
+    parent.append(document.createTextNode(text.slice(last, match.index)));
+    const a = document.createElement('a');
+    a.href = match[0];
+    a.textContent = match[0];
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    parent.append(a);
+    last = match.index + match[0].length;
+  }
+  parent.append(document.createTextNode(text.slice(last)));
+}
+
+function addMessage(m) {
+  if (seenMsgs.has(m.id)) return false;
+  seenMsgs.add(m.id);
+  chatLog.push(m);
+  if (chatLog.length > 100) chatLog.shift();
+  renderMessage(m);
+  return true;
+}
+
+function renderMessage(m) {
+  const mine = !!S.peer && m.from === S.peer.id;
+  const box = $('#msgs');
+  const stick = mine || box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'msg' + (mine ? ' mine' : '');
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const hora = new Date(m.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  meta.textContent = (mine ? 'Você' : m.name) + ' · ' + hora;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  linkify(m.text, bubble);
+
+  wrap.append(meta, bubble);
+  box.append(wrap);
+  if (stick) box.scrollTop = box.scrollHeight;
+}
+
+function addSystem(text) {
+  const box = $('#msgs');
+  const el = document.createElement('div');
+  el.className = 'sys';
+  el.textContent = text;
+  box.append(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendChat(raw) {
+  const text = raw.trim().slice(0, MAX_MSG);
+  if (!text || !S.peer) return;
+  const m = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    from: S.peer.id,
+    name: S.name,
+    text,
+    ts: Date.now()
+  };
+  addMessage(m);
+  broadcast({ t: 'chat', m });
+}
+
+function chatVisible() {
+  return window.innerWidth > MOBILE_MAX || $('#chat').classList.contains('open');
+}
+
+function setChatOpen(open) {
+  $('#chat').classList.toggle('open', open);
+  if (open) {
+    unread = 0;
+    updateBadge();
+    $('#chat-input').focus();
+  }
+}
+
+function updateBadge() {
+  const b = $('#chat-badge');
+  b.hidden = unread === 0;
+  b.textContent = unread > 9 ? '9+' : String(unread);
+}
+
+/* ---------------- Microfone e tela ---------------- */
+
+function toggleMute() {
+  if (S.noMic) return toast('Você entrou sem microfone. Libere o microfone no cadeado ao lado do endereço e entre de novo na sala.', 6000);
+  S.muted = !S.muted;
+  S.mic.getAudioTracks().forEach((t) => (t.enabled = !S.muted));
+  const me = tiles.get('me');
+  if (me) me.mi.hidden = !S.muted;
+  broadcast({ t: 'mute', muted: S.muted });
+  updateButtons();
+}
+
+let shareBusy = false;
+
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Mac/i.test(navigator.platform)) ||
+    // celular/tablet com "site para computador" ligado: o toque é o dedo, não o mouse
+    (navigator.maxTouchPoints > 0 && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+}
+
+/* Explica por que o navegador não oferece o compartilhamento de tela */
+function shareUnsupportedMessage() {
+  const md = !!navigator.mediaDevices;
+  const gdm = !!(md && navigator.mediaDevices.getDisplayMedia);
+  let inFrame = true;
+  try { inFrame = window.self !== window.top; } catch (e) { /* bloqueado = está em iframe */ }
+  const touch = isMobileDevice();
+  const details = 'seguro=' + (window.isSecureContext ? 'sim' : 'não') + ', iframe=' + (inFrame ? 'sim' : 'não') +
+    ', toque=' + (touch ? 'sim' : 'não') + ', mediaDevices=' + (md ? 'sim' : 'não') + ', getDisplayMedia=' + (gdm ? 'sim' : 'não');
+  console.warn('[compartilhar tela] indisponível —', details, '—', navigator.userAgent);
+
+  let msg;
+  if (!window.isSecureContext) {
+    msg = 'A página foi aberta sem conexão segura. Abra o endereço começando com https://.';
+  } else if (inFrame) {
+    msg = 'A página está aberta dentro de outra página ou aplicativo. Copie o endereço e abra direto em uma aba do Chrome.';
+  } else if (touch) {
+    msg = 'Celulares e tablets (mesmo com "site para computador" ligado) não permitem compartilhar a tela pelo navegador. Aqui você vê a tela dos outros, fala e usa o chat. Para compartilhar, use um computador.';
+  } else {
+    msg = 'Este navegador não oferece compartilhamento de tela. Atualize o Chrome (menu ⋮ > Ajuda > Sobre o Google Chrome) ou use Edge/Firefox.';
+  }
+  return msg + ' [' + details + ']';
+}
+
+/* Tenta com som da tela e, se o navegador não aceitar, vai simplificando o pedido */
+async function captureScreen() {
+  const attempts = [
+    { video: { frameRate: { ideal: 30 } }, audio: { suppressLocalAudioPlayback: true }, selfBrowserSurface: 'exclude' },
+    { video: true, audio: true },
+    { video: true }
+  ];
+  let lastErr;
+  for (const opts of attempts) {
+    try {
+      return await navigator.mediaDevices.getDisplayMedia(opts);
+    } catch (e) {
+      lastErr = e;
+      const n = e && e.name;
+      // recusado, cancelado ou sem tela disponível: tentar de novo não adianta
+      if (n === 'NotAllowedError' || n === 'AbortError' || n === 'NotFoundError' || n === 'SecurityError') throw e;
+    }
+  }
+  throw lastErr;
+}
+
+async function toggleShare() {
+  if (S.screen && S.shareKind === 'screen') return stopShare();
+  if (shareBusy) return;
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    if (isMobileDevice() && window.isSecureContext) return openShareSheet();
+    return toast(shareUnsupportedMessage(), 14000);
+  }
+
+  shareBusy = true;
+  let stream;
+  try {
+    stream = await captureScreen();
+  } catch (e) {
+    const n = e && e.name;
+    if (n === 'NotAllowedError' || n === 'AbortError') {
+      toast('Compartilhamento cancelado ou bloqueado. Se você não cancelou, libere "Gravação de tela" para o navegador nas configurações do sistema (no Mac: Ajustes > Privacidade e Segurança) e tente de novo.', 9000);
+    } else if (n === 'NotFoundError') {
+      toast('Nenhuma tela ou janela disponível para compartilhar.', 5000);
+    } else {
+      toast('Não foi possível compartilhar a tela (' + (n || 'erro desconhecido') + ').', 6000);
+    }
+    return;
+  } finally {
+    shareBusy = false;
+  }
+
+  beginShare(stream, 'screen');
+}
+
+/* Começa a enviar um vídeo (tela ou câmera) para todos da sala */
+function beginShare(stream, kind) {
+  if (S.screen) stopShare();   // um de cada vez: tela OU câmera
+  S.screen = stream;
+  S.shareKind = kind;
+  const cam = kind === 'camera';
+
+  // Botão "Parar de compartilhar" do próprio navegador
+  S.screen.getVideoTracks()[0].addEventListener('ended', stopShare);
+
+  addScreenTile('screen-me', S.screen, cam ? 'Sua câmera' : 'Sua tela', true);
+  S.peers.forEach((_, id) => startScreenCall(id));
+  if (S.peers.size === 0) toast('Você está compartilhando. Quem entrar na sala vai ver automaticamente.', 5000);
+  else if (S.peers.size > 5) toast('Muita gente na sala: a qualidade do vídeo é reduzida automaticamente.', 5000);
+  updateButtons();
+}
+
+/* Celular: compartilha a câmera (o navegador do celular não deixa enviar a tela) */
+async function shareCamera(facing) {
+  closeShareSheet();
+  closeCamSheet();
+  if (shareBusy) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return toast('Este navegador não deixou usar a câmera. Abra a página por https://.', 6000);
+  }
+  shareBusy = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    beginShare(stream, 'camera');
+  } catch (e) {
+    toast('Não foi possível usar a câmera. Libere a permissão da câmera no navegador e tente de novo.', 6000);
+  } finally {
+    shareBusy = false;
+  }
+}
+
+function openShareSheet() { $('#share-sheet').hidden = false; }
+function closeShareSheet() { $('#share-sheet').hidden = true; }
+function openCamSheet() { $('#cam-sheet').hidden = false; }
+function closeCamSheet() { $('#cam-sheet').hidden = true; }
+
+/* Botão da câmera: no celular pergunta frontal ou traseira; no computador usa a webcam */
+function toggleCamera() {
+  if (S.screen && S.shareKind === 'camera') return stopShare();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return toast('Este navegador não deixou usar a câmera. Abra a página por https://.', 6000);
+  }
+  if (isMobileDevice()) return openCamSheet();
+  return shareCamera('user');
+}
+
+/* Troca de câmera ao vivo (frontal <-> traseira) sem refazer a chamada */
+async function flipCamera() {
+  if (!S.screen || S.shareKind !== 'camera' || shareBusy) return;
+  shareBusy = true;
+  try {
+    const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+    if (cams.length < 2) return toast('Só há uma câmera neste aparelho.', 4000);
+
+    const oldTrack = S.screen.getVideoTracks()[0];
+    const cur = oldTrack.getSettings().deviceId;
+    const idx = cams.findIndex((d) => d.deviceId === cur);
+    const next = cams[(idx + 1) % cams.length];
+
+    const fresh = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: next.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    const newTrack = fresh.getVideoTracks()[0];
+
+    // troca a imagem enviada a cada pessoa, sem recomeçar a chamada
+    S.screenCalls.forEach((call) => {
+      const pc = call.peerConnection;
+      if (!pc || !pc.getSenders) return;
+      pc.getSenders().forEach((sender) => {
+        if (sender.track && sender.track.kind === 'video') sender.replaceTrack(newTrack).catch(() => {});
+      });
+    });
+
+    // prévia no seu aparelho (o mesmo MediaStream, só com a imagem nova)
+    S.screen.removeTrack(oldTrack);
+    oldTrack.stop();
+    S.screen.addTrack(newTrack);
+    newTrack.addEventListener('ended', stopShare);
+  } catch (e) {
+    toast('Não foi possível virar a câmera neste aparelho.', 5000);
+  } finally {
+    shareBusy = false;
+  }
+}
+
+/* Mostra o botão "virar" só quando está transmitindo a câmera e há mais de uma */
+async function refreshFlip() {
+  let n = 0;
+  if (S.screen && S.shareKind === 'camera') {
+    try {
+      n = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput').length;
+    } catch (e) { /* sem lista de câmeras */ }
+  }
+  $('#btn-flip').hidden = n < 2 || !(S.screen && S.shareKind === 'camera');
+}
+
+function startScreenCall(id) {
+  if (!S.screen || !S.peer) return;
+  const call = S.peer.call(id, S.screen, { metadata: { type: 'screen', kind: S.shareKind } });
+  S.screenCalls.set(id, call);
+  // a conexão leva um instante para negociar; ajusta a qualidade em seguida
+  setTimeout(tuneScreen, 1500);
+  setTimeout(tuneScreen, 5000);
+}
+
+/* Divide a "internet de subida" entre quem está assistindo: mais gente = qualidade menor */
+function tuneScreen() {
+  const viewers = Math.max(1, S.screenCalls.size);
+  const bps = Math.round(Math.min(2500000, Math.max(250000, 2500000 / viewers)));
+  S.screenCalls.forEach((call) => {
+    const pc = call.peerConnection;
+    if (!pc || !pc.getSenders) return;
+    pc.getSenders().forEach((sender) => {
+      if (!sender.track || sender.track.kind !== 'video') return;
+      try {
+        const params = sender.getParameters();
+        if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+        params.encodings[0].maxBitrate = bps;
+        sender.setParameters(params).catch(() => {});
+      } catch (e) { /* navegador sem suporte: segue sem limite */ }
+    });
+  });
+}
+
+function stopShare() {
+  if (!S.screen) return;
+  S.screen.getTracks().forEach((t) => t.stop());
+  S.screen = null;
+  S.screenCalls.forEach((c) => { try { c.close(); } catch (e) {} });
+  S.screenCalls.clear();
+  removeTile('screen-me');
+  broadcast({ t: 'screen', on: false });
+  updateButtons();
+}
+
+function updateButtons() {
+  const m = $('#btn-mute');
+  const off = S.muted || S.noMic;
+  m.classList.toggle('off', off);
+  m.firstChild.textContent = off ? '🔇 ' : '🎤 ';
+  m.querySelector('.txt').textContent = S.noMic ? 'Sem microfone' : (S.muted ? 'Mudo' : 'Microfone');
+
+  const sharingScreen = !!S.screen && S.shareKind === 'screen';
+  const sharingCam = !!S.screen && S.shareKind === 'camera';
+
+  const s = $('#btn-share');
+  s.classList.toggle('active', sharingScreen);
+  s.querySelector('.txt').textContent = sharingScreen ? 'Parar tela' : 'Compartilhar tela';
+
+  const c = $('#btn-camera');
+  c.classList.toggle('active', sharingCam);
+  c.querySelector('.txt').textContent = sharingCam ? 'Parar câmera' : 'Compartilhar câmera';
+
+  refreshFlip();
+}
+
+/* ---------------- Tela do celular sempre ligada durante a chamada ---------------- */
+
+let wakeLock = null;
+
+async function keepAwake(on) {
+  try {
+    if (on) {
+      if (!navigator.wakeLock || wakeLock) return;
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
+    }
+  } catch (e) { wakeLock = null; /* sem suporte ou negado: segue sem */ }
+}
+
+// o navegador solta o bloqueio quando a aba fica em segundo plano; pede de novo ao voltar
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !S.peer || $('#room').hidden) return;
+  keepAwake(true);
+  // ao voltar de outro app, reconecta ao servidor se ele derrubou a conexão (senão ninguém consegue entrar)
+  if (S.peer.disconnected && !S.peer.destroyed) { try { S.peer.reconnect(); } catch (e) { /* tenta depois */ } }
+});
+
+/* ---------------- Convite ---------------- */
+
+function copy(text, okMsg) {
+  const done = () => toast(okMsg);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => prompt('Copie:', text));
+  } else {
+    prompt('Copie:', text);
+  }
+}
+
+function inviteLink(srv = S.srv) {
+  let base;
+  if (IS_FILE) {
+    // Aberto direto do computador: o link precisa apontar para onde o site está publicado
+    base = prompt(
+      'Você abriu o arquivo direto do computador, então o link precisa usar o endereço onde o site está publicado.\n\n' +
+      'Cole aqui esse endereço (ex.: https://meu-chat.netlify.app):',
+      store('vc-base') || ''
+    );
+    if (!base || !base.trim()) return null;
+    base = base.trim();
+    if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
+    store('vc-base', base);
+    base = base.replace(/[?#].*$/, '');
+  } else {
+    base = location.origin + location.pathname;
+  }
+  return base + (srv ? '?srv=' + encodeSrv(srv) : '?sala=' + S.code);
+}
+
+/* ---------------- Utilidades de interface ---------------- */
+
+const mk = (tag, cls, txt) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined) e.textContent = txt;
+  return e;
+};
+const mkBtn = (txt, fn, cls = 'btn small') => {
+  const e = mk('button', cls, txt);
+  e.type = 'button';
+  e.addEventListener('click', fn);
+  return e;
+};
+
+/* ---------------- Conversa com o servidor de contas ---------------- */
+
+async function api(path, method = 'GET', body) {
+  const opt = { method, credentials: 'same-origin', headers: {} };
+  if (method !== 'GET') {
+    opt.headers['Content-Type'] = 'application/json';
+    opt.body = JSON.stringify(body || {});
+  }
+  let r;
+  try { r = await fetch('/api' + path, opt); }
+  catch (e) { throw Object.assign(new Error('Não consegui falar com o servidor.'), { offline: true }); }
+  let data = {};
+  try { data = await r.json(); } catch (e) { /* resposta sem JSON */ }
+  if (!r.ok) {
+    const err = Object.assign(new Error(data.error || 'Erro ' + r.status), { status: r.status });
+    // Hospedagem estática (sem o server.js) responde 404/405 em HTML: não é um erro da conta
+    if (!data.error && (r.status === 404 || r.status === 405)) err.offline = true;
+    throw err;
+  }
+  return data;
+}
+
+function sessionExpired() {
+  if (S.peer) return toast('Sua sessão expirou. Quando sair da sala, entre de novo.', 8000);
+  toast('Sua sessão expirou. Entre de novo.');
+  setTimeout(() => location.reload(), 1200);
+}
+
+/* ---------------- Servidores (guardados na conta) ---------------- */
+
+let servers = {};
+let saveT = null;
+
+function saveServers() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    api('/servers', 'PUT', { servers }).catch((e) => {
+      if (e.status === 401) sessionExpired();
+      else toast('Não consegui salvar seus servidores. Confira a conexão.');
+    });
+  }, 400);
+}
+
+async function loadServers() {
+  try { servers = (await api('/servers')).servers || {}; } catch (e) { servers = {}; }
+}
+
+function rid(n) {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let r = '';
+  for (let i = 0; i < n; i++) r += c[Math.floor(Math.random() * c.length)];
+  return r;
+}
+
+// O servidor inteiro (nome e salas) viaja dentro do link de convite
+function encodeSrv(s) {
+  const o = { i: s.id, n: s.name, e: s.emoji, v: s.v, c: s.ch.map((c) => [c.id, c.name]) };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function decodeSrv(t) {
+  try {
+    const o = JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/')))));
+    if (!/^[A-Z0-9]{4}$/.test(o.i) || !Array.isArray(o.c)) return null;
+    const ch = o.c.slice(0, 12).filter((c) => /^[A-Z0-9]{2}$/.test(c[0])).map((c) => ({ id: c[0], name: String(c[1] || 'Sala').slice(0, 24) }));
+    if (!ch.length) return null;
+    return { id: o.i, name: String(o.n || 'Servidor').slice(0, 30), emoji: String(o.e || '🎧').slice(0, 4), v: +o.v || 1, ch, mine: false };
+  } catch (e) { return null; }
+}
+function importSrv(s) {
+  const old = servers[s.id];
+  if (old && (old.mine || old.v >= s.v)) return old;
+  servers[s.id] = s;
+  saveServers();
+  return s;
+}
+
+/* ---------------- Avatares e status ---------------- */
+
+const UI = { tab: 'online', friends: [], incoming: [], outgoing: [], sq: '', sig: '', srvSig: '', editing: false, invite: '' };
+const PALETTE = ['#5b6cff', '#e5484d', '#d9822b', '#2fb36d', '#1c9fb5', '#a25be0', '#d4509a', '#7a8f2a'];
+
+function colorFor(s) {
+  let h = 0;
+  for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+function avatar(u, big) {
+  const name = (u.displayName || u.username || '?').trim();
+  const a = mk('div', 'av' + (big ? ' lg' : ''), (Array.from(name)[0] || '?').toUpperCase());
+  a.style.background = colorFor(u.username || name);
+  return a;
+}
+function withDot(av, u) {
+  av.append(mk('span', 'dot' + (u.online ? '' : ' off')));
+  return av;
+}
+const statusText = (f) => (f.room ? 'Em voz · ' + f.room.title : f.online ? 'Online' : 'Offline');
+const sortFriends = (list) => [...list].sort((a, b) => (b.online - a.online) || a.displayName.localeCompare(b.displayName, 'pt-BR'));
+const friendsIn = (code) => UI.friends.filter((f) => f.room && f.room.code === code);
+const srvSig = () => (S.srv ? S.srv.ch.map((c) => friendsIn(S.srv.id + c.id).map((f) => f.id).join(',')).join('|') : '');
+
+/* ---------------- Amigos ---------------- */
+
+async function refreshFriends() {
+  if (!S.user) return;
+  try {
+    const d = await api('/friends');
+    const sig = JSON.stringify(d);
+    if (sig === UI.sig) return;          // nada mudou: não redesenha (evita atrapalhar cliques)
+    UI.sig = sig;
+    UI.friends = d.friends || [];
+    UI.incoming = d.incoming || [];
+    UI.outgoing = d.outgoing || [];
+    renderLists();
+  } catch (e) { if (e.status === 401) sessionExpired(); }
+}
+
+async function friendAction(path, body, okMsg) {
+  try {
+    await api(path, 'POST', body);
+    if (okMsg) toast(okMsg);
+    UI.sig = '';
+    await refreshFriends();
+  } catch (e) { toast(e.message); }
+}
+
+function renderLists() {
+  const n = UI.incoming.length;
+  $('#pend-badge').hidden = !n;
+  $('#pend-badge').textContent = n;
+  renderSide();
+  renderActive();
+  if (!S.srv) renderFriendsList();
+  else if (!UI.editing && srvSig() !== UI.srvSig) renderServer(false);
+}
+
+function friendClick(f) {
+  closeNav();
+  if (f.room) joinFriend(f);
+  else toast(f.displayName + (f.online ? ' está online, mas não está em uma sala de voz.' : ' está offline.'));
+}
+
+function joinFriend(f) {
+  if (S.peer) return;
+  setError('');
+  S.viaSrv = false;
+  S.chTitle = f.room.title;
+  start(false, f.room.code);
+}
+
+function renderSide() {
+  const box = $('#side-list');
+  box.textContent = '';
+  const q = UI.sq.trim().toLowerCase();
+  const list = sortFriends(UI.friends).filter((f) => !q || f.displayName.toLowerCase().includes(q) || f.username.includes(q));
+  $('#side-count').textContent = list.length ? String(list.length) : '';
+  if (!list.length) {
+    box.append(mk('p', 'hint', UI.friends.length ? 'Ninguém encontrado.' : 'Seus amigos aparecem aqui.'));
+    return;
+  }
+  list.forEach((f) => {
+    const r = mk('div', 'urow' + (f.online ? '' : ' off'));
+    r.tabIndex = 0;
+    r.setAttribute('role', 'button');
+    const info = mk('div', 'info');
+    info.append(mk('div', 'nm', f.displayName));
+    if (f.online) info.append(mk('div', 'st', statusText(f)));
+    r.append(withDot(avatar(f), f), info);
+    r.addEventListener('click', () => friendClick(f));
+    r.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); friendClick(f); } });
+    box.append(r);
+  });
+}
+
+function friendRow(u, kind) {
+  const r = mk('div', 'frow');
+  const info = mk('div', 'info');
+  const nm = mk('div', 'nm', u.displayName);
+  nm.append(mk('span', 'un', '  @' + u.username));
+  info.append(nm, mk('div', 'st', kind === 'in' ? 'Pedido de amizade recebido' : kind === 'out' ? 'Pedido de amizade enviado' : statusText(u)));
+  const acts = mk('div', 'frow-act');
+  if (kind === 'in') {
+    const ok = mk('button', 'act ok', '✓'); ok.type = 'button'; ok.title = 'Aceitar'; ok.setAttribute('aria-label', 'Aceitar pedido de ' + u.displayName);
+    ok.addEventListener('click', () => friendAction('/friends/accept', { userId: u.id }, 'Agora você e ' + u.displayName + ' são amigos.'));
+    const no = mk('button', 'act bad', '✕'); no.type = 'button'; no.title = 'Recusar'; no.setAttribute('aria-label', 'Recusar pedido de ' + u.displayName);
+    no.addEventListener('click', () => friendAction('/friends/remove', { userId: u.id }, 'Pedido recusado.'));
+    acts.append(ok, no);
+  } else if (kind === 'out') {
+    const no = mk('button', 'act bad', '✕'); no.type = 'button'; no.title = 'Cancelar pedido'; no.setAttribute('aria-label', 'Cancelar pedido para ' + u.displayName);
+    no.addEventListener('click', () => friendAction('/friends/remove', { userId: u.id }, 'Pedido cancelado.'));
+    acts.append(no);
+  } else {
+    if (u.room) acts.append(mkBtn('Entrar', () => joinFriend(u), 'btn small primary'));
+    const more = mk('button', 'act', '⋮'); more.type = 'button'; more.title = 'Mais opções'; more.setAttribute('aria-label', 'Mais opções de ' + u.displayName);
+    more.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMenu(more, [{ label: 'Remover amigo', danger: true, fn: () => { if (confirm('Remover ' + u.displayName + ' dos amigos?')) friendAction('/friends/remove', { userId: u.id }, 'Amigo removido.'); } }]);
+    });
+    acts.append(more);
+  }
+  const av = avatar(u, true);
+  if (!kind) withDot(av, u);   // pedidos pendentes não têm status
+  r.append(av, info, acts);
+  return r;
+}
+
+function renderFriendsList() {
+  const add = UI.tab === 'add';
+  $('#fr-add').hidden = !add;
+  $('#fr-search-wrap').hidden = add;
+  $('#fr-count').hidden = add;
+  $('#fr-list').hidden = add;
+  if (add) return;
+
+  const q = $('#fr-search').value.trim().toLowerCase();
+  const match = (u) => !q || u.displayName.toLowerCase().includes(q) || u.username.includes(q);
+  const box = $('#fr-list');
+  box.textContent = '';
+  let n = 0, empty = '';
+
+  if (UI.tab === 'pending') {
+    const rows = [...UI.incoming.filter(match).map((u) => [u, 'in']), ...UI.outgoing.filter(match).map((u) => [u, 'out'])];
+    rows.forEach(([u, k]) => box.append(friendRow(u, k)));
+    n = rows.length;
+    $('#fr-count').textContent = 'Pendentes — ' + n;
+    empty = q ? 'Nenhum pedido encontrado.' : 'Nenhum pedido pendente.';
+  } else {
+    let list = sortFriends(UI.friends).filter(match);
+    if (UI.tab === 'online') list = list.filter((f) => f.online);
+    list.forEach((f) => box.append(friendRow(f)));
+    n = list.length;
+    $('#fr-count').textContent = (UI.tab === 'online' ? 'Online' : 'Todos os amigos') + ' — ' + n;
+    if (q) empty = 'Ninguém encontrado.';
+    else if (UI.tab === 'online') empty = UI.friends.length ? 'Nenhum amigo online agora. Quando eles entrarem, aparecem aqui.' : 'Você ainda não tem amigos. Use "Adicionar amigo" para enviar um pedido pelo nome de usuário.';
+    else empty = 'Você ainda não tem amigos. Use "Adicionar amigo" para enviar um pedido pelo nome de usuário.';
+  }
+  if (!n) box.append(mk('p', 'empty', empty));
+}
+
+function renderActive() {
+  const box = $('#active-list');
+  box.textContent = '';
+  const inVoice = UI.friends.filter((f) => f.room);
+  if (!inVoice.length) {
+    box.append(mk('p', 'hint', 'Ninguém está em uma sala de voz agora. Quando um amigo entrar em uma, ela aparece aqui e você entra junto com um clique.'));
+    return;
+  }
+  inVoice.forEach((f) => {
+    const card = mk('div', 'acard');
+    const h = mk('div', 'acard-h');
+    const t = mk('div', 'info');
+    t.append(mk('div', 'nm', f.displayName), mk('div', 'st', 'Em uma sala de voz'));
+    h.append(withDot(avatar(f, true), f), t);
+    const b = mk('div', 'acard-b');
+    const bi = mk('div', 'info');
+    bi.append(mk('div', 'nm', '🔊 ' + f.room.title), mk('div', 'st', f.room.count + (f.room.count === 1 ? ' pessoa' : ' pessoas')));
+    b.append(bi, mkBtn('Entrar', () => joinFriend(f), 'btn small primary'));
+    card.append(h, b);
+    box.append(card);
+  });
+}
+
+/* ---------------- Menu e janelas ---------------- */
+
+function closeMenu() { const m = $('#ctx'); if (m) m.remove(); }
+function openMenu(anchor, items) {
+  closeMenu();
+  const m = mk('div', 'menu');
+  m.id = 'ctx';
+  items.forEach((it) => {
+    const b = mk('button', it.danger ? 'danger' : '', it.label);
+    b.type = 'button';
+    b.addEventListener('click', () => { closeMenu(); it.fn(); });
+    m.append(b);
+  });
+  document.body.append(m);
+  const r = anchor.getBoundingClientRect();
+  m.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - m.offsetHeight - 8)) + 'px';
+  m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8)) + 'px';
+  setTimeout(() => document.addEventListener('click', closeMenu, { once: true }), 0);
+}
+
+function closeModal() { const m = $('#modal'); if (m) m.remove(); }
+function openModal(build) {
+  closeModal();
+  const bg = mk('div', 'sheet-bg');
+  bg.id = 'modal';
+  const sh = mk('div', 'sheet');
+  sh.setAttribute('role', 'dialog');
+  sh.setAttribute('aria-modal', 'true');
+  bg.append(sh);
+  bg.addEventListener('click', (e) => { if (e.target === bg) closeModal(); });
+  build(sh);
+  document.body.append(bg);
+  const first = sh.querySelector('input, button');
+  if (first) first.focus();
+}
+
+function openQuick() {
+  closeNav();
+  openModal((m) => {
+    const code = mk('input');
+    code.maxLength = 6; code.placeholder = 'Ex.: K7M2QX'; code.autocomplete = 'off';
+    code.style.textTransform = 'uppercase';
+    const err = mk('p', 'error'); err.hidden = true;
+    const go = () => {
+      const c = code.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (c.length < 4) { err.textContent = 'Digite o código da sala.'; err.hidden = false; return; }
+      closeModal(); quickStart(false, c);
+    };
+    code.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    m.append(
+      mk('h2', '', 'Sala rápida'),
+      mk('p', '', 'Crie uma sala de voz avulsa e envie o link aos amigos, ou entre em uma sala com o código.'),
+      mkBtn('Criar sala', () => { closeModal(); quickStart(true, genCode()); }, 'btn primary'),
+      mk('label', '', 'Código da sala'), code, err,
+      mkBtn('Entrar na sala', go, 'btn'),
+      mkBtn('Fechar', closeModal, 'btn')
+    );
+  });
+}
+
+function quickStart(host, code) {
+  if (S.peer) return;
+  S.viaSrv = false;
+  S.chTitle = '';
+  setError('');
+  start(host, code);
+}
+
+function openAccount() {
+  closeNav();
+  openModal((m) => {
+    const who = mk('div', 'info');
+    who.append(mk('div', 'nm', S.user.displayName), mk('div', 'st', '@' + S.user.username));
+    const row = mk('div', 'acct');
+    row.append(avatar(S.user, true), who);
+    m.append(mk('h2', '', 'Minha conta'), row, mkBtn('Sair da conta', logout, 'btn danger'), mkBtn('Fechar', closeModal, 'btn'));
+  });
+}
+
+async function logout() {
+  try { await api('/logout', 'POST'); } catch (e) { /* sai mesmo assim */ }
+  location.reload();
+}
+
+/* ---------------- Telas: barra de servidores, início e servidor ---------------- */
+
+function closeNav() { $('#app').classList.remove('nav-open'); }
+
+function renderRail() {
+  const rail = $('#rail');
+  rail.textContent = '';
+  const home = mk('button', 'rail-btn' + (S.srv ? '' : ' on'), '🎙️');
+  home.type = 'button'; home.title = 'Início'; home.setAttribute('aria-label', 'Início');
+  home.addEventListener('click', () => { S.srv = null; route(); closeNav(); });
+  rail.append(home, mk('div', 'rail-sep'));
+  Object.values(servers).forEach((s) => {
+    const b = mk('button', 'rail-btn' + (S.srv && S.srv.id === s.id ? ' on' : ''), s.emoji);
+    b.type = 'button'; b.title = s.name; b.setAttribute('aria-label', s.name);
+    b.addEventListener('click', () => { openServer(s.id); closeNav(); });
+    rail.append(b);
+  });
+  const add = mk('button', 'rail-btn add', '+');
+  add.type = 'button'; add.title = 'Criar servidor'; add.setAttribute('aria-label', 'Criar servidor');
+  add.addEventListener('click', createServer);
+  rail.append(add);
+}
+
+function route() {
+  const inSrv = !!S.srv;
+  $('#tabs').hidden = inSrv;
+  $('#srv-head').hidden = !inSrv;
+  $('#page-friends').hidden = inSrv;
+  $('#page-server').hidden = !inSrv;
+  $('#nav-friends').classList.toggle('on', !inSrv);
+  renderRail();
+  if (inSrv) renderServer(false);
+  else renderFriendsList();
+  renderSide();
+  renderActive();
+}
+
+function openServer(id) {
+  if (!servers[id]) return;
+  S.srv = servers[id];
+  setError('');
+  route();
+}
+
+function createServer() {
+  closeNav();
+  const nome = S.user.displayName.slice(0, 14);
+  let id; do { id = rid(4); } while (servers[id]);
+  servers[id] = { id, name: 'Servidor de ' + nome, emoji: '🎧', v: 1, mine: true, ch: [{ id: rid(2), name: 'Geral' }] };
+  saveServers();
+  openServer(id);
+  draft = { name: servers[id].name, emoji: '🎧', ch: servers[id].ch.map((c) => ({ ...c })) };
+  renderEdit();
+}
+
+function joinChannel(c) {
+  if (S.peer) return;
+  S.viaSrv = true;
+  S.chTitle = S.srv.emoji + ' ' + S.srv.name + ' · ' + c.name;
+  setError('');
+  start(false, S.srv.id + c.id, true);
+}
+
+function renderServer(edit) {
+  const s = S.srv, b = $('#srv-body');
+  if (!s) return;
+  if (edit) return renderEdit();
+  UI.editing = false;
+  UI.srvSig = srvSig();
+  $('#srv-title').textContent = s.emoji + ' ' + s.name;
+  b.textContent = '';
+  b.append(mk('h1', '', s.emoji + ' ' + s.name), mk('p', 'sub', s.mine ? 'Servidor seu: você pode editar e convidar amigos.' : 'Escolha uma sala de voz para entrar.'));
+  s.ch.forEach((c) => {
+    const r = mk('div', 'ch');
+    const left = mk('div', 'info');
+    left.append(mk('div', 'nm', '🔊 ' + c.name));
+    const who = friendsIn(s.id + c.id);
+    if (who.length) left.append(mk('div', 'st', who.map((f) => f.displayName).join(', ')));
+    r.append(left, mkBtn('Entrar', () => joinChannel(c), 'btn small primary'));
+    b.append(r);
+  });
+  const a = mk('div', 'srv-actions');
+  a.append(mkBtn('🔗 Copiar convite', () => { const l = inviteLink(s); if (l) copy(l, 'Link do servidor copiado! Envie aos amigos.'); }));
+  if (s.mine) a.append(mkBtn('✏️ Editar', () => { draft = { name: s.name, emoji: s.emoji, ch: s.ch.map((c) => ({ ...c })) }; renderEdit(); }));
+  a.append(mkBtn(s.mine ? '🗑️ Excluir' : 'Remover da lista', () => {
+    if (!confirm(s.mine ? 'Excluir este servidor? Quem já tem o link ainda mantém uma cópia.' : 'Remover este servidor da sua lista?')) return;
+    delete servers[s.id]; saveServers(); S.srv = null; route();
+  }));
+  b.append(a);
+}
+
+let draft = null;
+function renderEdit() {
+  const s = S.srv, b = $('#srv-body');
+  UI.editing = true;
+  b.textContent = '';
+  b.append(mk('h1', '', 'Editar servidor'));
+  b.append(mk('label', '', 'Ícone e nome'));
+  const top = mk('div', 'edit-row');
+  const em = mk('input'); em.value = draft.emoji; em.maxLength = 4; em.style.flex = '0 0 64px'; em.style.textAlign = 'center';
+  const nm = mk('input'); nm.value = draft.name; nm.maxLength = 30; nm.placeholder = 'Nome do servidor';
+  em.addEventListener('input', () => (draft.emoji = em.value));
+  nm.addEventListener('input', () => (draft.name = nm.value));
+  top.append(em, nm);
+  b.append(top, mk('label', '', 'Salas de voz'));
+  draft.ch.forEach((c, i) => {
+    const r = mk('div', 'edit-row');
+    const inp = mk('input'); inp.value = c.name; inp.maxLength = 24;
+    inp.addEventListener('input', () => (c.name = inp.value));
+    const del = mkBtn('✖', () => { draft.ch.splice(i, 1); renderEdit(); });
+    del.disabled = draft.ch.length < 2;
+    r.append(inp, del);
+    b.append(r);
+  });
+  if (draft.ch.length < 12) b.append(mkBtn('➕ Nova sala', () => {
+    const used = new Set([...draft.ch, ...s.ch].map((c) => c.id));
+    let id; do { id = rid(2); } while (used.has(id));
+    draft.ch.push({ id, name: 'Nova sala' });
+    renderEdit();
+  }, 'btn'));
+  b.append(mk('p', 'hint', 'Depois de salvar, copie o convite de novo: é o link novo que leva as mudanças para os amigos.'));
+  const a = mk('div', 'srv-actions');
+  a.append(mkBtn('Salvar', () => {
+    s.name = draft.name.trim() || 'Servidor';
+    s.emoji = draft.emoji.trim() || '🎧';
+    s.ch = draft.ch.map((c) => ({ id: c.id, name: c.name.trim() || 'Sala' }));
+    s.v = (s.v || 1) + 1;
+    saveServers();
+    renderRail();
+    renderServer(false);
+    toast('Salvo! Copie o convite de novo para os amigos receberem as mudanças.');
+  }, 'btn small primary'), mkBtn('Cancelar', () => renderServer(false)));
+  b.append(a);
+}
+
+
+/* ---------------- Convites por link ---------------- */
+
+function processInvite() {
+  const p = new URLSearchParams(location.search);
+  const sv = decodeSrv(p.get('srv') || '');
+  const code = (p.get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  if (sv) {
+    const got = importSrv(sv);
+    openServer(got.id);
+    toast('Servidor ' + got.emoji + ' ' + got.name + ' adicionado à sua lista.');
+  } else if (code.length >= 4) {
+    UI.invite = code;
+    $('#banner-inv-text').textContent = 'Você foi convidado para a sala ' + code + '.';
+    $('#banner-inv').hidden = false;
+  }
+  if (sv || code) history.replaceState(null, '', location.pathname);
+}
+
+/* ---------------- Presença: avisa os amigos onde você está ---------------- */
+
+async function sendPresence() {
+  if (!S.user) return;
+  const room = S.entered ? { code: S.code, title: S.chTitle || 'Sala ' + S.code } : null;
+  try { await api('/presence', 'POST', { room }); }
+  catch (e) { if (e.status === 401) sessionExpired(); }
+}
+
+function goOffline() {
+  if (!S.user) return;
+  try { navigator.sendBeacon('/api/presence/off', new Blob(['{}'], { type: 'application/json' })); } catch (e) { /* ignora */ }
+}
+
+/* ---------------- Login e cadastro ---------------- */
+
+let authMode = 'login';
+
+function authError(msg) {
+  const e = $('#auth-error');
+  e.textContent = msg || '';
+  e.hidden = !msg;
+}
+
+function setAuthMode(m) {
+  authMode = m;
+  const reg = m === 'register';
+  $('#auth-title').textContent = reg ? 'Criar conta' : 'Bem-vindo de volta!';
+  $('#auth-sub').textContent = reg ? 'Escolha um nome de usuário para seus amigos te encontrarem.' : 'Entre para falar com seus amigos.';
+  $('#f-display').hidden = !reg;
+  $('#f-pass2').hidden = !reg;
+  $('#a-pass').autocomplete = reg ? 'new-password' : 'current-password';
+  $('#auth-submit').textContent = reg ? 'Criar conta' : 'Entrar';
+  $('#auth-switch-text').textContent = reg ? 'Já tem uma conta?' : 'Precisa de uma conta?';
+  $('#auth-switch').textContent = reg ? 'Entrar' : 'Registre-se';
+  authError('');
+}
+
+function showAuth(offline) {
+  $('#auth').hidden = false;
+  $('#app').hidden = true;
+  $('#auth-offline').hidden = !offline;
+}
+
+async function onLoggedIn(user) {
+  S.user = user;
+  S.name = user.displayName;
+  $('#auth').hidden = true;
+  $('#app').hidden = false;
+  $('#dock-name').textContent = user.displayName;
+  const dav = $('#dock-av');
+  dav.textContent = '';
+  dav.append(withDot(avatar(user), { online: true }));
+  await loadServers();
+  await refreshFriends();
+  route();
+  processInvite();
+  sendPresence();
+  setInterval(refreshFriends, 8000);
+  setInterval(sendPresence, 20000);
+}
+
+/* ---------------- Eventos ---------------- */
+
+$('#btn-mute').addEventListener('click', toggleMute);
+$('#btn-share').addEventListener('click', toggleShare);
+$('#btn-cam-back').addEventListener('click', () => shareCamera('environment'));
+$('#btn-cam-front').addEventListener('click', () => shareCamera('user'));
+$('#btn-sheet-close').addEventListener('click', closeShareSheet);
+$('#share-sheet').addEventListener('click', (e) => { if (e.target.id === 'share-sheet') closeShareSheet(); });
+$('#btn-camera').addEventListener('click', toggleCamera);
+$('#btn-flip').addEventListener('click', flipCamera);
+$('#btn-open-cam').addEventListener('click', () => { closeShareSheet(); openCamSheet(); });
+$('#btn-cam-close').addEventListener('click', closeCamSheet);
+$('#cam-sheet').addEventListener('click', (e) => { if (e.target.id === 'cam-sheet') closeCamSheet(); });
+$('#btn-leave').addEventListener('click', () => leave());
+$('#btn-cancel').addEventListener('click', () => leave());
+
+$('#btn-chat').addEventListener('click', () => setChatOpen(true));
+$('#btn-chat-close').addEventListener('click', () => setChatOpen(false));
+$('#chat-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('#chat-input');
+  sendChat(input.value);
+  input.value = '';
+});
+
+$('#btn-copy-code').addEventListener('click', () => copy(S.code, 'Código copiado!'));
+$('#btn-copy-link').addEventListener('click', () => {
+  const link = inviteLink(S.viaSrv ? S.srv : null);
+  if (link) copy(link, 'Link copiado! Envie para seus amigos.');
+});
+
+window.addEventListener('beforeunload', () => { goOffline(); if (S.peer) { try { S.peer.destroy(); } catch (e) {} } });
+
+/* ---------------- Eventos: conta e telas ---------------- */
+
+$('#auth-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const reg = authMode === 'register';
+  const username = $('#a-user').value.trim().toLowerCase();
+  const password = $('#a-pass').value;
+  if (!/^[a-z0-9_.]{3,20}$/.test(username)) return authError('Usuário: de 3 a 20 caracteres, só letras minúsculas, números, _ e ponto.');
+  if (!password) return authError('Digite sua senha.');
+  if (reg) {
+    if (password.length < 8) return authError('A senha precisa ter pelo menos 8 caracteres.');
+    if (password !== $('#a-pass2').value) return authError('As senhas não são iguais.');
+  }
+  const btn = $('#auth-submit');
+  btn.disabled = true;
+  authError('');
+  try {
+    const d = await api(reg ? '/register' : '/login', 'POST', { username, password, displayName: $('#a-display').value.trim() });
+    $('#a-pass').value = '';
+    $('#a-pass2').value = '';
+    await onLoggedIn(d.user);
+  } catch (err) {
+    authError(err.offline ? 'Não consegui falar com o servidor de contas. Confira se o server.js está rodando.' : err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+$('#auth-switch').addEventListener('click', (e) => { e.preventDefault(); setAuthMode(authMode === 'login' ? 'register' : 'login'); });
+$('#a-user').addEventListener('input', (e) => { const v = e.target.value.toLowerCase(); if (v !== e.target.value) e.target.value = v; });
+
+document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
+  UI.tab = b.dataset.tab;
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === b));
+  renderFriendsList();
+  if (UI.tab === 'add') $('#add-user').focus();
+}));
+$('#fr-search').addEventListener('input', renderFriendsList);
+$('#side-search').addEventListener('input', (e) => { UI.sq = e.target.value; renderSide(); });
+
+$('#add-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = $('#add-user').value.trim().replace(/^@/, '').toLowerCase();
+  const msg = $('#add-msg');
+  if (!name) return;
+  msg.hidden = false;
+  msg.className = 'hint';
+  msg.textContent = 'Enviando…';
+  try {
+    const d = await api('/friends/add', 'POST', { username: name });
+    msg.className = 'ok-msg';
+    msg.textContent = d.message;
+    $('#add-user').value = '';
+    UI.sig = '';
+    refreshFriends();
+  } catch (err) {
+    msg.className = 'error';
+    msg.textContent = err.message;
+  }
+});
+
+$('#nav-friends').addEventListener('click', () => { S.srv = null; route(); closeNav(); });
+$('#nav-quick').addEventListener('click', openQuick);
+$('#btn-account').addEventListener('click', openAccount);
+document.querySelectorAll('.menu-btn').forEach((b) => b.addEventListener('click', () => $('#app').classList.toggle('nav-open')));
+$('#nav-bg').addEventListener('click', closeNav);
+$('#banner-err-x').addEventListener('click', () => setError(''));
+$('#banner-inv-x').addEventListener('click', () => { $('#banner-inv').hidden = true; });
+$('#banner-inv-go').addEventListener('click', () => { $('#banner-inv').hidden = true; if (UI.invite) quickStart(false, UI.invite); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closeMenu(); closeNav(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.user) { refreshFriends(); sendPresence(); } });
+window.addEventListener('pagehide', goOffline);
+
+/* ---------------- Início ---------------- */
+
+(async function init() {
+  if (/FBAN|FBAV|FB_IAB|Instagram|TikTok|musical_ly|Snapchat|MicroMessenger|Line\/|Twitter/i.test(navigator.userAgent)) {
+    $('#inapp-warning').hidden = false;
+  }
+
+  // Quem chegou por um convite vê o aviso já na tela de entrada
+  const p = new URLSearchParams(location.search);
+  const sv = decodeSrv(p.get('srv') || '');
+  const sala = (p.get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  const hint = $('#auth-invite');
+  if (sv) hint.textContent = 'Você foi convidado para o servidor ' + sv.emoji + ' ' + sv.name + '. Entre ou crie sua conta para abrir.';
+  else if (sala.length >= 4) hint.textContent = 'Você foi convidado para a sala ' + sala + '. Entre ou crie sua conta para participar.';
+  hint.hidden = !hint.textContent;
+
+  setAuthMode('login');
+  try {
+    const d = await api('/me');
+    if (!d.user) throw Object.assign(new Error('sem servidor de contas'), { offline: true });
+    await onLoggedIn(d.user);
+  } catch (e) {
+    showAuth(!!e.offline);
+  }
+})();
+</script>
+
+<!-- Carrega o PeerJS: arquivo local (se existir) e, se não, CDNs de reserva -->
+<script>
+(function () {
+  var sources = [
+    'peerjs.min.js',
+    'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',
+    'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js'
+  ];
+  function have() { return !!(window.Peer || (window.peerjs && window.peerjs.Peer)); }
+  function next(i) {
+    if (have()) return;
+    if (i >= sources.length) { window.__peerFailed = true; return; }
+    var s = document.createElement('script');
+    s.src = sources[i];
+    s.onload = function () { if (!have()) next(i + 1); };
+    s.onerror = function () { next(i + 1); };
+    document.head.appendChild(s);
+  }
+  next(0);
+})();
+</script>
+</body>
+</html>
